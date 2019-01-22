@@ -300,18 +300,18 @@ You can also link to these images directly from your own user interface, to give
 
 You assemble the url for a check image like this:
 ````
-https://checkplease.co.nz/img/<imagePrefix>_<lowerCasePriority>.png
+https://checkplease.co.nz/img/status/<imagePrefix>_<lowerCasePriority>.png
 ````
 So if you have a check which is:
 - status == V_ID_TYPE status
 - plan == MEMBER
 - priority == GOLD
 
-..then the imagePrefix from the status group is *verifyNow* and the image url will be:
+..then the imagePrefix from the status group is *pleaseVerify* and the image url will be:
 ````
-https://checkplease.co.nz/img/verifyNow_gold.png
+https://checkplease.co.nz/img/status/pleaseVerify_gold.png
 ````
-![alt text](https://cpapp.ngrok.io/img/pleaseVerify_gold.png "Image for check: V_ID_TYPE, MEMBER, GOLD")
+![Image for check: V_ID_TYPE, MEMBER, GOLD](https://checkplease.co.nz/img/status/pleaseVerify_gold.png)
 
 In the CheckPlease UI we use CSS to add a border and drop shadow effect to the image. 
 
