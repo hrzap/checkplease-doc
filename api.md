@@ -219,6 +219,7 @@ The response contains your account details.
 ````
 {
   "companyName": "Big Store Enterprises",
+  "shortCode": "bigstore",
   "accountOwnerFirstName": "Stephanie",
   "accountOwnerLastName": "Higgins",
   "accountOwnerEmail": "stephanie.higgins@bigstore.com",
