@@ -224,6 +224,7 @@ The response contains your account details.
   "accountOwnerLastName": "Higgins",
   "accountOwnerEmail": "stephanie.higgins@bigstore.com",
   "defaultPriority": "BRONZE",
+  "demoMode": true,
   "plan": "BUSINESS"
 }
 ````
