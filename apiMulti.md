@@ -10,7 +10,7 @@ We provide a simple, secure API for third party developers to use our platform t
 - Qualifications Check
 - ACC Claims History
 
-Concepts
+Gloassary
 ======
 A **Check** represents a single check, such as an MoJ Check, IR330 Form, etc., performed on an **Individual**.
 
@@ -43,7 +43,7 @@ An individual's profile is made up of:
 - NZ driver licence number
 - any check-specific information, e.g. whether candidate wants postal copy for MoJ Checks.
 
-When identity verification starts, a **profile snapshot** is recorded for audit purposes (i.e. this is the structured data that will be used to generate forms/check requests).
+When identity verification starts, a **Profile Snapshot** is recorded for audit purposes (i.e. this is the structured data that will be used to generate forms/check requests).
 
 Once identity verification is complete, each of the checks on the bundle are completed and possibly used to start a workflow (e.g. with the Ministry of Justice for an MoJ Check).
 
