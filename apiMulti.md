@@ -1,4 +1,3 @@
-
 CheckPlease API
 =================
 CheckPlease is a SaaS platform for paperless onboarding and employment compliance.
@@ -10,9 +9,9 @@ We provide a simple, secure API for third party developers to use our platform t
 - Qualifications Check
 - ACC Claims History
 
-Glossary
+Concepts
 ======
-A **Check** represents a single check, such as an MoJ Check, IR330 Form, etc., performed on an **Individual**.
+A **Check** represents a single check, such as an MoJ Check, IR330 Form, etc., performed on an **Individual** by a user within a customer **Account**.
 
 Some checks, like IR330, are a form that needs to be completed and signed.
 
@@ -21,9 +20,9 @@ Others, like MoJ Check, are complex workflows that move the form between parties
 Some checks require identity verification of the individual, which can be:
 - less rigorous (for an MoJ Check, sighting their driver licence and comparing to their online signature); or
 - more rigorous (for Police Vetting, 2 forms of ID, physical eyeball of the individual by an **Identity Referee**); or
-- not required (for a Qualifications Check, the identity verification is made by the awarding institution.
+- not required (for a Qualifications Check, the identity verification is made by the awarding institution).
 
-A **Bundle** is a collection of checks, which will all share a single (or none) identity verification process on the individual.
+A **Bundle** is a collection of checks, which will all share a single identity verification process on the individual.
 
 Bundling checks makes for a much better candidate experience. The individual can complete all of their company onboarding paperwork steps with a single, cohesive, mobile-friendly branded web flow and sign online once.
 
@@ -31,9 +30,9 @@ This can replace a poor and insecure candidate experience of paper and online fo
 
 For example, an MoJ Check, a Credit Check and a Qualifications Check can be performed with a few web pages for the individual:
 - grant consent to each of the 3 checks
-- enter the **profile** data required by the 3 checks
+- enter the common **profile** data required by the 3 checks
 - upload ID documentation
-- sign online (once)
+- sign online (once) and submit
 
 An individual's profile is made up of:
 - their title, first, middle and last names, residential and postal addresses, contact details, gender
@@ -43,7 +42,7 @@ An individual's profile is made up of:
 - NZ driver licence number
 - any check-specific information, e.g. whether candidate wants postal copy for MoJ Checks.
 
-When identity verification starts, a **Profile Snapshot** is recorded for audit purposes (i.e. this is the structured data that will be used to generate forms/check requests).
+Once the bundle of checks is submitted, identity verification starts and a **profile snapshot** is recorded for audit purposes.
 
 Once identity verification is complete, each of the checks on the bundle are completed and possibly used to start a workflow (e.g. with the Ministry of Justice for an MoJ Check).
 
@@ -80,7 +79,7 @@ Ordering checks
 ====
 Use the **POST /checks** API to order checks.
 
-For example, to order 2 checks on Fred Flintstone - an MoJ Check with GOLD day priority and a Credit Check - from the command line, using curl:
+For example, to order 2 checks on Fred Flintstone - an MoJ Check with GOLD  priority and a Credit Check - from the command line, using curl:
 
 ````
 curl -X POST https://api.checkplease.co.nz/api/checks \
@@ -112,29 +111,29 @@ EOF
 ````
 The system processes the request as follows.
 
-First the system sets up the individual:
-- If no externalRef or guid is passed for the individual, AND there is not an existing individual within the realm with matching first name, last name and email, then a new individual is created
-- otherwise the existing individual will be used (but not updated, since the data is under the control of the individual via CheckPlease).
+First the system locates or creates the individual:
+- if externalRef is passed and there is an individual with matching externalRef, then use that individual
+- otherwise if there is an individual with matching first and last name and email then use that individual
+- otherwise create a new individual
+
+When an existing individual is used, their data will not be updated with any data in the API request, since once created, the individual is is control of their own data via the CheckPlease UI.
 
 Next the system sets up the bundle:
--  If a bundle was passed, that bundle is used.
-- Otherwise, if there is an existing bundle in ORDERED, I_DETAILS or BOUNCED or any I_% status, then that bundle is used. (In these statuses the individual still has a chance to edit their profile if the new check types require it and to provide consent).
-- Otherwise a new bundle is created.
+- if there is an existing bundle in ORDERED, I_DETAILS or BOUNCED or any I_% status, then that bundle is used. (In these statuses the individual still has a chance to give consent and update edit their profile).
+- otherwise create a new bundle
 
-Finally the system creates or updates the checks, for each one:
-- if externalRef was not passed, create a check
-- otherwise find and update the matching check on the same bundle, or if none, create a check
+Finally the system creates or updates the checks. For each check:
+- if externalRef was passed and there is an existing check, then update that check
+- otherwise create a check
 
-The API is transactional, so if there is any failure, the system remains unchanged (e.g. we won't have an individual created, but with no attached bundle).
+The API is transactional, so if there is any failure, the system remains unchanged (e.g. we won't end up with an individual but with no attached bundle, or a bundle with no checks).
 
 Once complete, the API response contains the same objects, but now with the server-assigned fields included for the check, it's bundle and for the individual:
-
-** can we remove GUIDs? **
 
 ````
 {
   "individual": {
-    "guid": "225f03a6-0e1e-6a2c-ab08-ba9461a091ff",
+    "externalRef": "uiy9824hjwer934",
     "firstName": "Fred",
     "lastName": "Flintstone",
     "email": "fred@flintstone.com",
@@ -145,7 +144,6 @@ Once complete, the API response contains the same objects, but now with the serv
     "nzDriverLicence": ""
   },
   "bundle": {
-    "guid": "4e5f03a6-0e1e-6a2c-ab08-ba9461a09122",
     "reference": 46387621,
     "individualUrl": "https://personal.checkplease.co.nz/for/bb5f03a6-0e1e-6a2c-ab08-ba9461a09137",
     "status": "ORDERED",
@@ -219,7 +217,8 @@ CheckPlease may return one of the following http statuses:
 - a bundle ID was specified, but that bundle already has a check of those types
 - a bundle ID was specified, but that bundle is not in one of the statuses listed above or did not pull in enough profile data for the new check(s) to be performed.
 - a check has an externalRef which is already in use by some other check, not on this bundle.
-- the check's priority cannot be changed once it is sent to the MoJ
+- an attempt to change an MoJ check's priority when it has already been sent to the MoJ
+- individual id and bundle the 
 
 Getting the current state of a check
 ====
