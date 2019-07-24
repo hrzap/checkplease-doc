@@ -10,7 +10,7 @@ We provide a simple, secure API for third party developers to use our platform t
 - Qualifications Check
 - ACC Claims History
 
-Gloassary
+Glossary
 ======
 A **Check** represents a single check, such as an MoJ Check, IR330 Form, etc., performed on an **Individual**.
 
