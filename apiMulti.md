@@ -119,7 +119,7 @@ First the system locates or creates the individual:
 When an existing individual is used, their data will not be updated with any data in the API request, since once created, the individual is is control of their own data via the CheckPlease UI.
 
 Next the system sets up the bundle:
-- if there is an existing bundle in ORDERED, I_DETAILS or BOUNCED or any I_% status, then that bundle is used. (In these statuses the individual still has a chance to give consent and update edit their profile).
+- if there is an existing bundle in ORDERED, I_DETAILS or BOUNCED or any I_% status, then that bundle is used. (In these statuses the individual still has a chance to give consent and update their profile).
 - otherwise create a new bundle
 
 Finally the system creates or updates the checks. For each check:
@@ -325,12 +325,11 @@ When you create a check with a web hook specified, whenever the check's status i
 
 This lets your server stay updated as the check progresses through each stage, eventually leading up to a result. For example, your server might change its own progress indicator on each incoming web hook call, to keep your end user informed.
 
-The web hook is not called for the very first transition (i.e. when a check is created) - instead the full check is available to you in the response to your POST /api/checks API call.  
+The web hook is not called for the very first transition (i.e. when a check is created) - on that case the full check is available to you in the response to your POST /checks API call.  
 
 **Response status:** When your web hook endpoint succeeds, you should return http status 200. However CheckPlease currently only calls your web hook once per update, regardless of the response - there is no e.g. retry with exponential backoff if your endpoint returns a non-200 response.  
 
-**Security:** CheckPlease attaches your API key in the Authorization header in its requests to your web hook. For security reasons, you should always check that the incoming Authorization header matches your own API key, otherwise an attacker with knowledge of your urls could theoretically call your server with false updates on your checks.  
-
+**Security:** CheckPlease attaches your API key in the Authorization header in its requests to your web hook. We recommend you always check that the incoming Authorization header matches your own API key, otherwise an attacker with knowledge of your webhook urls could theoretically call your server with false updates on your checks.  
 
 Fetching your account details
 ===========
