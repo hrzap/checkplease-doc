@@ -9,6 +9,29 @@ We provide a simple, secure API for third party developers to use our platform t
 - Qualifications Check
 - ACC Claims History
 
+API Endpoints
+----------
+The following endpoints are available:
+
+| API        | Purpose   |
+| -------- |--------|
+| POST&nbsp;/checks | Order or update a bundle of checks on a new or existing individual. |
+| GET&nbsp;/checks/byExternalRef/{externalRef} | Get the current state for a check and its bundle and individual.  |
+| Your web hook | Be alerted when a check or its bundle is updated. You pass your web hook's url in when you create a check. |
+| GET&nbsp;/checks/byClientKey/{clientKey}/request | Fetch the request pdf for a check. | 
+| GET&nbsp;/checks/byClientkey/{clientKey}/result | Fetch the result pdf for a check. |
+| GET&nbsp;/account | Fetch your account details. |
+ 
+To use the CheckPlease API, you'll need a free account at https://www.checkplease.co.nz.
+ 
+We're here to help you with your integration - for help using our API, email us at info@checkplease.co.nz.   
+
+API authentication
+----------
+For APIs calls that you make to CheckPlease, include your account's API key in the Authorization header. You can get your API key from your Account settings page in CheckPlease.
+
+For API calls that CheckPlease makes in to you (i.e. web hook calls), CheckPlease will attach your account's API key in the Authorization header. You should reject any incoming requests that don't have the API key present.
+
 Concepts
 ======
 A **Check** represents a single check, such as an MoJ Check, IR330 Form, etc., performed on an **Individual** by a user within a customer **Account**.
@@ -50,31 +73,6 @@ For checks that have a result (e.g. MoJ Check), when the workflow produces a res
 
 At every stage, when the check or its bundle are changed, the system calls the webhook (if any).
 
-API Endpoints
-----------
-The following endpoints are available:
-
-| API        | Purpose   |
-| -------- |--------|
-| POST&nbsp;/checks | Order or update a bundle of checks on a new or existing individual. |
-| GET&nbsp;/checks/byExternalRef/{externalRef} | Get the current state for a check and its bundle and individual.  |
-| Your web hook | Be alerted when a check or its bundle is updated. You pass your web hook's url in when you create a check. |
-| GET&nbsp;/checks/byClientKey/{clientKey}/request | Fetch the request pdf for a check. | 
-| GET&nbsp;/checks/byClientkey/{clientKey}/result | Fetch the result pdf for a check. |
-| GET&nbsp;/account | Fetch your account details. |
- 
-To use the CheckPlease API, you'll need a free account at https://www.checkplease.co.nz.
- 
-We're here to help you with your integration - for help using our API, email us at info@checkplease.co.nz.   
-
-
-API authentication
-----------
-For APIs calls that you make to CheckPlease, include your account's API key in the Authorization header. You can get your API key from your Account settings page in CheckPlease.
-
-For API calls that CheckPlease makes in to you (i.e. web hook calls), CheckPlease will attach your account's API key in the Authorization header. You should reject any incoming requests that don't have the API key present.
-
-   
 Ordering checks
 ====
 Use the **POST /checks** API to order checks.
@@ -111,15 +109,17 @@ EOF
 ````
 The system processes the request as follows.
 
+API processing
+------
 First the system locates or creates the individual:
 - if externalRef is passed and there is an individual with matching externalRef, then use that individual
 - otherwise if there is an individual with matching first and last name and email then use that individual
 - otherwise create a new individual
 
-When an existing individual is used, their data will not be updated with any data in the API request, since once created, the individual is is control of their own data via the CheckPlease UI.
+When an existing individual is used, their data will not be updated with any data in the API request except externalRef, since once created an individual is is control of their own data via the CheckPlease UI.
 
 Next the system sets up the bundle:
-- if there is an existing bundle in ORDERED, I_DETAILS or BOUNCED or any I_% status, then that bundle is used. (In these statuses the individual still has a chance to give consent and update their profile).
+- if there is an existing bundle in ORDERED, I_% or BOUNCED, then that bundle is used. (In these statuses the individual still has a chance to give consent and update their profile).
 - otherwise create a new bundle
 
 Finally the system creates or updates the checks. For each check:
@@ -128,7 +128,9 @@ Finally the system creates or updates the checks. For each check:
 
 The API is transactional, so if there is any failure, the system remains unchanged (e.g. we won't end up with an individual but with no attached bundle, or a bundle with no checks).
 
-Once complete, the API response contains the same objects, but now with the server-assigned fields included for the check, it's bundle and for the individual:
+API response
+---------
+Once complete, the API response contains the same objects, but now with the server-assigned fields included for the check(s) and the bundle and individual:
 
 ````
 {
@@ -189,6 +191,8 @@ Once complete, the API response contains the same objects, but now with the serv
 }
 ````
 
+Updating checks
+-------------
 The POST /checks endpoint can also be used to update the priority on MoJ Checks, e.g.:
 
 ````
@@ -208,17 +212,16 @@ EOF
 
 ````
 
-CheckPlease may return one of the following http statuses:
+Responses
+-----
+The API may return one of the following http statuses:
 - 200 if the operation was successful
 - 400 if the operation could not be completed
 
 400 errors may be due to:
-- firstName or lastName are missing
-- a bundle ID was specified, but that bundle already has a check of those types
-- a bundle ID was specified, but that bundle is not in one of the statuses listed above or did not pull in enough profile data for the new check(s) to be performed.
-- a check has an externalRef which is already in use by some other check, not on this bundle.
-- an attempt to change an MoJ check's priority when it has already been sent to the MoJ
-- individual id and bundle the 
+- firstName or lastName are missing when creating an individual
+- a non-complete check of that type already exists
+- an MoJ check's priority is being updated, but the check has already been sent to the MoJ
 
 Getting the current state of a check
 ====
