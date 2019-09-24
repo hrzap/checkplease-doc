@@ -1,3 +1,5 @@
+**DRAFT AND EXPERIMENTAL**
+
 CheckPlease API
 =================
 CheckPlease provides a simple, secure API for ordering and managing pre-employment and background checks, including Criminal Record checks from the [NZ Ministry of Justice](https://www.justice.govt.nz/criminal-records/).
