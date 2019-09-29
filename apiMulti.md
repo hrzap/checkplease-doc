@@ -388,10 +388,9 @@ depends on the check's status.
 Bundle statuses
 ==========
 The following shows the statuses that a bundle can pass through as:
-- the check is ordered
-- the individual consents and provides their personal data, ID document and online signature
-- the verifier checks the individual's ID document
-- the check is possibly returned to the individual to remedy problems (e.g illegible ID document)
+- the bundle is started
+- the individual consents and provides their personal data, ID documents (if the bundle needs IDV) and online signature
+- the verifier checks the individual's ID documents (if the bundle needs IDV) and the check is possibly returned to the individual to remedy problems (e.g illegible ID document)
 - eventually the identity is verified
  
 Your web hook is called each time your check's bundle transitions to a new status (as well as when the individual is updated, e.g. takes their married name).
