@@ -399,44 +399,64 @@ Your web hook is called each time your check's bundle transitions to a new statu
 ````
 * Diagram does not show all possible transitions
 
-        POST /checks triggers a bundle creation
+        Bundle is started
              |
-       +---------------+
-       | ORDERED       |
-       +---------------+
+       +---------------+    +------------+
+       | ORDERED       |--->| DECLINED   |
+       +---------------+    +------------+
              |
-       +-----|---------+   +----------+
-       |     \/        |-->| DECLINED |
-  +----->I_DETAILS     |   +----------+
-  |    |     \/        |
-  |    | I_DOCUMENT    | 
-  |    |     \/      Individual
-  |    | I_SIGNATURE  experience
-  |    |     |         |      +----------
-  |    |     |         |----->|
-  |    +-----|---------+      | CANCELLED_BY_CLIENT
-+----------+ |            +-->|
-| BOUNCED  | |            |   +---------
-+----------+ |            |
-  /\         |            |
-  |    +-----|-----------------+
-  |    |    \/                 |
-  |    | V_ID_TYPE             |
-  +----|     \/                |   +--------+
-       | V_ID_NAME             |-->| BAD_ID |
-       |     \/                |   +--------+
-       | V_DOB                 |
-       |     \/                |
-       | V_EXPIRY              |
-       |     \/             Verify
+       +---------------+          +------------------------+
+  +--->| I_DETAILS     |          |  CANCELLED_BY_CLIENT   |
+  |    +---------------+          +------------------------+
+  |          |
+  |         / \
+  |        / IDV required?
+  |       +     +-------+
+  |        \   /        | yes, MoJ Check
+  |         \ /         |
+  |          |      +----------------+       
+  |          |      | I_MOJDOCUMENT  | or I_PVDOCUMENT, I_BIOID, other identity level flows
+  |          |      +----------------+
+  |          |          |
+  |          |<---------+
+  |          |
+  |    +---------------+
+  |    | I_SIGNATURE   |
+  |    +---------------+
+  |          |
++----------+ |
+| BOUNCED  | |
++----------+ |
+  /\         |
+  |          |
+  |          |
+  |         / \
+  |        / IDV required?
+  |       +     +-----------------+
+  |        \   / no               |
+  |         \ /                   | 
+  |          | yes, MoJ Check     |       
+  |          |                    |  
+  |    +-----|-----------------+  |
+  |    |    \/                 |  |
+  |    | V_ID_TYPE             |  |
+  +----|     \/                |  |   +--------+
+       | V_ID_NAME             |----->| BAD_ID |
+       |     \/                |  |   +--------+
+       | V_DOB                 |  |
+       |     \/                |  |
+       | V_EXPIRY              |  |
+       |     \/             Verify|
        | V_SIGNATURE        experience
-       |     \/                |
-       | V_3RD_PARTY_SIGNATURE |
-       |     |                 |
-       +-----|-----------------+
+       |     \/                |  |
+       | V_3RD_PARTY_SIGNATURE |  |
+       |     |                 |  |
+       +-----|-----------------+  |
+             |                    |
+             |<-------------------+
              |
              \/
-     +---------------+
-     | VERIFIED      |
-     +---------------+
+      +---------------+
+      | VERIFIED      |
+      +---------------+
 ```` 
