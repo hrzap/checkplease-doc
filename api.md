@@ -171,15 +171,17 @@ The web hook is not called for the very first transition (i.e. when a check is c
 
 Patching a check
 ============
-Use the **PATCH /mojChecks/byExternalRef/{externalRef}** API to modify a check's priority.
+Use the **PATCH /mojChecks/byExternalRef/{externalRef}** API to modify a check.
 
-The priority is the only value that you can modify on a check, and you can only modify it:
+You can only modify the check as following:
+- change the check's priority
+- cancel the check
+
+You can only modify the check:
 - before payment (unless your check was created while your account is on a CREDIT or MEMBER plan)
 - before submission to the MoJ (all checks)
 
-You can use the canChangePriority field on the check to test whether this API call can be made.
-
-The externalRef is the value that you passed earlier when calling POST /mojChecks to create the check.
+You can use the **canChangePriority** field on the check to test whether priority can be modified or the check can be cancelled.
 
 For example, to update the check created earlier to SILVER priority, from the command line using curl:
 
@@ -194,8 +196,23 @@ curl -X PATCH https://api.checkplease.co.nz/api/mojChecks/byExternalRef/100233 \
 EOF
 ````
 
-Note you must set the Content-Type header correctly.
- 
+You must set the Content-Type header correctly.
+
+The externalRef is the value that you passed earlier when calling POST /mojChecks to create the check.
+
+Another example is to cancel a check:
+
+````
+curl -X PATCH https://api.checkplease.co.nz/api/mojChecks/byExternalRef/100233 \
+-H 'Content-Type: application/merge-patch+json' \
+-H 'Authorization: OmV81mPqcQ_5vb3R9UjTQPelTmcvfeAbgqO5ptkK' \
+-d @- << EOF
+{
+  "status": "CANCELLED_BY_CLIENT"
+}
+EOF
+````
+
 CheckPlease may return one of the following http statuses:
 - 200 if the check was successfully updated
 - 400 if the check could not be updated (for example, because the check has already been submitted to MoJ)
