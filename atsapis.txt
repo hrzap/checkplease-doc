@@ -1,0 +1,539 @@
+openapi: 3.0.0
+info:
+  version: '0.8'
+  title: ATS Integration
+  description: >
+    HR Zap provides paperless background checks, contracts and online forms and
+    employee onboarding.
+
+    These are the **ATS** APIs for integrating HR Zap to other systems that will
+    order background checks or onboardng steps, such as ATS/recruitment systems
+    or third party background checking providers. Integrations like this order
+    and track bundles of zaps.
+
+
+    We also provide the Zap APIs, to support you building your own custom zap
+    types.
+tags:
+  - name: Regular APIs
+    description: >
+      The regular APIs are endpoints that we host on our servers. You call our
+      regular APIs to, e.g. order a new bundle of zaps on a candiate.
+  - name: Webhooks
+    description: >
+      The webhook APIs are endpoints that you host on your server. We call your
+      webhooks when interesting things happen, e.g. when the status of one of
+      your bundles is updated.
+paths:
+  /ping:
+    get:
+      tags:
+        - Regular APIs
+      summary: test API connectivity
+      description: >
+        Start here, with the most basic connectivity test. As long as your API
+        credentials are OK, you'll receive a 200 response.
+      responses:
+        '200':
+          description: successful operation
+  /account:
+    get:
+      tags:
+        - Regular APIs
+      summary: Get details of the account
+      description: |
+        Get details of the account
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+  /bundleOrders:
+    post:
+      tags:
+        - Regular APIs
+      summary: Order (or update) a bundle of zaps on an individual.
+      description: >
+        Use this API to order a bundle of zaps. You specify..
+
+        - a list of zaps (e.g. a criminal record check and a driver licence
+        check)
+
+        - a list of role holders (e.g. individual == Fred Bloggs)
+
+        - some field values (e.g. candidate salary, company details, etc.)
+
+
+        If there are zaps already attached to your bundle type, HR Zap will
+        merge the two sets and remove any duplicates.
+
+
+        If you don't pass across all of the required role holders (e.g. perhaps
+        the bundle contained a zap that needs a Hiring manager, but you didn't
+        pass one) then the bundle will not launch but instead will enter
+        AWAITINGSETUP.
+
+
+        The bundle will also enter AWAITINGSETUP if your bundle type has
+        setupRequired set. The bundle remains in AWAITINGSETUP until a user
+        clicks through and fixes things up.
+
+        The field values you pass across in your API call depends on your
+        integration..
+
+        - if you are an ATS/recruitment system you may pass across a bare
+        minimum of fields, such as candidate email and name, or, if you have it,
+        more information from your system such as phone number, address, salary,
+        etc.
+
+        - if you are a third party background check provider relying on HR Zap
+        behind the scenes of your own service, you may pass across absolutely
+        everything, even an image of the candidate's signature.
+      responses:
+        '201':
+          description: Bundle ordered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bundle'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BundleOrder'
+        description: |
+          Order a bundle.
+        required: true
+  /bundleTypes:
+    get:
+      tags:
+        - Regular APIs
+      summary: List public bundle types
+      description: >-
+        Get the list of public bundle types, e.g. to populate menu items,
+        buttons etc. that a user could use to order a bundles on candidates in
+        the ATS.
+
+        Use this API when your integration first connects to the account in HR
+        Zap. After that, your bundle type webhook will alert you if the list of
+        buindles changes.
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BundleType'
+  '/bundleTypes/webhooks/byUrl/{webhookUrl}':
+    parameters:
+      - name: webhookUrl
+        in: path
+        description: url of your bundle type webhook (must be url encoded)
+        required: true
+        schema:
+          type: string
+    post:
+      tags:
+        - Regular APIs
+      summary: Register a bundle type webhook
+      description: |
+        Use this API to register a bundle type webhook.
+
+        Your bundle type webhook is called whenever the list of bundles changes.
+
+        Additional calls with the same webhook url are ignored.
+      responses:
+        '200':
+          description: Bundle type webhook successfully registered
+    delete:
+      tags:
+        - Regular APIs
+      summary: Unregister a bundle type webhook
+      description: >
+        Use this API to unregister a bundle type webhook.
+
+
+        Your bundle type webhook will no longer be called whenever the list of
+        bundles changes.
+      responses:
+        '200':
+          description: Bundle type webhook successfully unregistered
+        '404':
+          description: No such bundle type webhook registered
+  /bundleWebhooks/retries:
+    post:
+      tags:
+        - Regular APIs
+      summary: Tell HR Zap to retry any failed bundle webhooks
+      description: >
+        Use this API to ask HR Zap to retry any previously failed bundle
+        webhooks.
+
+
+        HR Zap will mark a bundle webhook as failed if your server is down or
+        there are internet problems. The next time the bundle changes, HR Zap
+        will retry the failed call before it attempts the new call. In this way,
+        when your server is down, a number of failed webhook calls may queue up
+        on your bundles.
+
+
+        When your server comes back up, you should call this API to signal to HR
+        Zap that you are back online and ready to process any webhook calls that
+        you missed during your outage.
+      responses:
+        '200':
+          description: 'The retry request was accepted, and the retries will happen shortly.'
+  /exampleBundleTypeWebhook:
+    post:
+      tags:
+        - Webhooks
+      summary: >-
+        Your bundle type webhook is called on any change to the list of public
+        bundle types
+      description: >
+        This is an example of how your bundle type webhook endpoint should look.
+
+
+        Create an endpoint like this on your server, then call
+        /subscriptions/bundleTypes/{webhookUrl} to tell HR Zap about your web
+        hook.
+
+
+        From then on, your webhook will be called when there are any changes to
+        the set of bundle types - in turn you might update the menu items or
+        buttons in the ATS that are used to order bundles.
+      responses:
+        '200':
+          description: successful operation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/BundleType'
+        description: |
+          The set of bundle types for the account.
+        required: true
+  /exampleBundleWebhook:
+    post:
+      tags:
+        - Webhooks
+      summary: >-
+        Your bundle webhook is called on any changes to the zaps within the
+        bundle.
+      description: >
+        This is an example of how your bundle webhook endpoint should look.
+
+
+        Pass the url of your webhook in when you call POST /bundleOrders. Your
+        webhook will be called upon any change to your bundle.
+      responses:
+        '200':
+          description: successful operation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Bundle'
+        description: |
+          Details for the bundle that was just modified.
+        required: true
+  /zaps/byId/{id}/form:
+    get:
+      tags:
+        - Regular APIs
+      summary: Stream the form pdf for the given zap
+      description: |
+        Stream the form pdf for the given zap.
+      parameters:
+        - name: id
+          in: path
+          description: uuid for the zap
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+        '404':
+          description: no such zap or the zap does not have a form
+components:
+  schemas:
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 0f045901-d83d-47d9-b326-e9fa016ad40e
+        companyName:
+          type: string
+          example: Big Store Enterprises
+        primaryAdmin:
+          $ref: '#/components/schemas/Person'
+    Bundle:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 821ea6cd-e659-4024-9829-3654759fc23c
+        externalRef:
+          type: string
+          example: our-ref-20334
+        status:
+          $ref: '#/components/schemas/BundleStatus'
+        image:
+          type: string
+          format: base64
+          description: >
+            Base64-encoded binary data for a 52x32 proportioned .png image that
+            you can use to render the bundle within one of your web pages.
+
+
+            The image might include PII so protect it it carefully.
+          example: |
+            TG9yZ......IG9mIExvcmVtIElwc3VtLg==
+        bundleUi:
+          type: string
+          format: url
+          description: >
+            The url of an protected iframeable web page, intended for display in
+            an ATS, through which the user can view/ manage a bundle. This
+            provides a way to show, from inside an ATS, the same UI that pops up
+            from the HR Zap dashboard.
+
+
+            You should append the PII params for the user who is accessing the
+            page
+              - firstName
+              - lastName
+              - email
+
+            If the user does not exist then HR Zap will create them in the same
+            way
+
+            as the POST /individuals API.
+              
+            If the user would normally not see the bundle (not the owner or an
+            admin), the API provides a special one time access to the HR Zap web
+            pages for this bundle. We assume the ATS has its reasons for
+            granting access.
+        rolePersons:
+          type: array
+          items:
+            $ref: '#/components/schemas/RolePerson'
+        zaps:
+          type: array
+          items:
+            $ref: '#/components/schemas/Zap'
+    BundleOrder:
+      type: object
+      properties:
+        bundleType:
+          type: string
+          example: 8c498c13-572b-4c80-b2c3-04ef9688c936
+        externalRef:
+          type: string
+          example: our-ref-20334
+        bundleWebhookUrl:
+          type: string
+          format: url
+          example: 'https://example.com/myBundleWebhook'
+          description: your endpoint for alerts when the bundle changes
+        rolePersons:
+          type: array
+          items:
+            $ref: '#/components/schemas/RolePerson'
+        rolesFields:
+            $ref: 'https://api.swaggerhub.com/apis/HR-Zap/Custom-Zaps/0.8#/components/schemas/ReadRolesFields'
+        accountFields:
+            $ref: 'https://api.swaggerhub.com/apis/HR-Zap/Custom-Zaps/0.8#/components/schemas/WriteFields'
+        zaps:
+          description: >-
+            zap-scoped fields for the new bundle, e.g. priority == GOLD for MoJ
+            check
+          type: array
+          items:
+            type: object
+            properties:
+              zapTypeId:
+                type: string
+                example: 8c498c13-572b-4c80-b2c3-04ef9688c936
+              fields:
+                $ref: 'https://api.swaggerhub.com/apis/HR-Zap/Custom-Zaps/0.8#/components/schemas/WriteFields'                
+    BundleStatus:
+      type: string
+      description: >
+        Notes..
+
+        - AWAITINGSETUP is entered when the bundleType has setupRequired == true
+        OR a bundle was ordered with any missing role holders.
+
+        - CROSSED is entered when any zap in the bundle was crossed
+
+        - TICKED when the last zap has been ticked
+      enum:
+        - AWAITINGSETUP
+        - LAUNCHED
+        - CROSSED
+        - TICKED
+      example: LAUNCHED
+    BundleType:
+      type: object
+      properties:
+        id:
+          type: string
+          example: e8d219d5-7036-4bf8-aa05-30bf6054f661
+        name:
+          type: string
+          example: Driver onboarding
+        description:
+          type: string
+          example: Onboard new truck drivers in the haulage division
+        image:
+          type: string
+          format: base64
+          description: >
+            Base64-encoded binary data for a 52x32 proportioned .png image that
+            you can use to render the bundle type within one of your web pages.
+          example: |
+            TG9yZlkjs98kjhKYo9hklkhoVtIElwc3VtLg==..
+    CurrentWorkflowStep:
+      type: object
+      properties:
+        sequence:
+          description: the 0-based index of the current step within the workflow
+          example: 2
+          type: integer
+        role:
+          description: the role associated with the current step
+          example: Individual
+          type: string
+    Person:
+      type: object
+      properties:
+        firstName:
+          type: string
+          example: Fred
+        lastName:
+          type: string
+          example: Bloggs
+        email:
+          type: string
+          format: email
+          example: fred@example.com
+    RolePerson:
+      type: object
+      description: details of a person who is the roleholder for a bundle
+      properties:
+        role:
+          example: Individual
+          type: string
+        person:
+          $ref: '#/components/schemas/Person'
+    Zap:
+      type: object
+      description: >
+        A single ordered zap.
+
+
+        When a Zap is passed to an ATS integration (rather than a ZAP
+        integration), the secret account-scoped fields are not included in the
+        accountFields element.
+      properties:
+        id:
+          type: string
+          example: 1a0b68ea-2987-47c0-8787-133638dd5081
+        zapType:
+          $ref: '#/components/schemas/ZapType'
+        currentWorkflowStep:
+          $ref: '#/components/schemas/CurrentWorkflowStep'
+        rolesFields:
+          $ref: 'https://api.swaggerhub.com/apis/HR-Zap/Custom-Zaps/0.8#/components/schemas/ReadRolesFields'
+        accountFields:
+          $ref: 'https://api.swaggerhub.com/apis/HR-Zap/Custom-Zaps/0.8#/components/schemas/ReadFields'
+        zapFields:
+          $ref: 'https://api.swaggerhub.com/apis/HR-Zap/Custom-Zaps/0.8#/components/schemas/ReadFields'
+        zapCoreStatus:
+          $ref: '#/components/schemas/ZapCoreStatus'
+        zapAppStatus:
+          $ref: '#/components/schemas/ZapAppStatus'
+        reference:
+          type: string
+          example: 1000324
+        formAvailable:
+          type: boolean
+          example: true
+    ZapAppStatus:
+      type: object
+      properties:
+        completeEta:
+          type: string
+          format: date
+          description: >
+            If the zap is not yet complete, then when the zap reckons it will be
+            (date format as per [RFC 3339, section
+            5.6](http://tools.ietf.org/html/rfc3339#section-5.6)).
+        statusString:
+          type: string
+          description: >
+            A string containing the zap's status in your system, which HR Zap
+            will present to the user in text, table cells, etc.
+          example: Sent to the Ministry of Justice
+        statusDiv:
+          type: string
+          description: >
+            html for a div showing the zap's status in your system, which HR Zap
+            will present to the user inside a container 3-4 words wide that
+            expands downwards.
+          example: >-
+            <div style=blah><img href=blah />Sent to the Ministry of
+            Justice</div>
+    ZapCoreStatus:
+      type: object
+      description: >
+        The core status of the zap, i.e. as maintained by HR Zap as it passes
+        the zap around between candidate and other role holders.
+      properties:
+        status:
+          type: string
+          enum:
+            - WITHORDERER
+            - WITHROLEHOLDER
+            - DISAPPROVED
+            - COMPLETE
+          example: WITHROLEHOLDER
+        role:
+          type: string
+          description: name of the role that the zap is with (if status == WITHROLEHOLDER)
+          example: Individual
+    ZapType:
+      type: object
+      description: Details of this zap type
+      properties:
+        id:
+          type: string
+          example: a1ab5dd8-f3eb-4867-81a1-106b3c6f9c66
+        image:
+          type: string
+          description: >
+            The image used to render the zap type in the UI. The image will be
+            suitable for displaying at an effective resolution of 52x32.
+          format: url
+          example: 'https://hrzap.com/example/1047444.png'
+        name:
+          type: string
+          example: NZTA driver check onboarding
+        description:
+          type: string
+          example: >-
+            Get the consent form needed to onboarding new drivers into the NZTA
+            Driver Check system
+        hasForm:
+          type: boolean
+          description: whether this zap type has a form (filled in by the role holders)
+          example: true
