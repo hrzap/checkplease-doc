@@ -1,52 +1,56 @@
 openapi: 3.0.0
 info:
   version: '0.8'
-  title: Custom Zaps
-  description: >
-    HR Zap provides paperless background checks, contracts and online forms and
-    employee onboarding.
+  title: Zap APIs
+  description: |
+    HR Zap is a platform for automating the nitty gritty steps of the hiring process, like background checking and onboarding.
 
+    These are the **Zap APIs**, for building custom zap types.
 
-    These are the **Custom zap** APIs, to support you building your own custom
-    zap type. Anyone can create their own zap types, for use within their own HR
-    Zap account - if you want to publish your zap in the zap store so that
-    others can use it, contact us at HR Zap.
-
-
-    See also the ATS APIs for integrating HR Zap to ATS/recruitment systems.
-    Integrations like this order and track bundles of zaps.
+    HR Zap also has the **Order APIs**, which are for ordering and tracking zaps. i.e. as an applicant tracking system or reseller.
 tags:
   - name: Regular APIs
-    description: >
-      The regular APIs are endpoints that we host on our servers. You call our
-      regular APIs to, e.g. update the status for one of your zaps.
+    description: |
+      Regular APIs live on HR Zap's servers, and are called by you. For example you could update the status on one of your zaps to "2/3 reference checks complete".
   - name: Webhooks
-    description: >
-      The webhook APIs are endpoints that you host on your server. We call your
-      webhooks when interesting things happen, e.g. to allow you
+    description: |
+      Webhook APIs live on your servers, and are called by HR Zap when interesting things happen. For example your setup webhook is called when a user installs your zap - inside your webhook you might e.g. verify the API key that the installer provided.
 
-      - to do extra validation when a user or individual clicks to complete
-      their workflow step
-
-      - to do processing when the zap's workflow reaches an API step
-
-      - to check API credentials when your zap is installed
-
-      - to pass back possible fields values for the user when ordering your zap
+      To build the urls for its webhook calls, HR Zap concats the base url you entered on your zap type (e.g. https://yourdomain.com/yourwebhooks) with the relevant webhook url (e.g. /setup) to build the complete url (e.g. https://yourdomain.com/yourwebhooks/setup).
+      
 paths:
-  /ping:
+
+  /z/ping:
     get:
       tags:
         - Regular APIs
       summary: test API connectivity
-      description: >
-        A basic connectivity test. As long as your API auth is OK, you'll get a
-        200.
+      description: |
+        Call the ping API to test basic connectivity test - that your server can call HR Zap's APIs. As long as your API auth is OK, you'll get a 200 code and a message back.
       responses:
         200:
           description: successful operation
-          
-  /zaps/byId/{id}:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormattedMessage'
+                
+  /ping:
+    get:
+      tags:
+        - Webhooks
+      summary: test API connectivity
+      description: |
+        Call the ping API to test basic connectivity test - that HR Zap can call APIs on your server. You should pass back 200 status and a message.
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormattedMessage'
+
+  /z/zaps/{id}:
     parameters:
       - name: id
         in: path
@@ -57,16 +61,11 @@ paths:
     get:
       tags:
         - Regular APIs
-      summary: 'Get a zap, by its id'
-      description: >
-        Use this API to fetch the state of one of your zaps. You first learn you
-        have a new zap via your validate or zap code webhooks.
+      summary: Get a zap, by its id
+      description: |
+        Use this API to fetch the state of one of your zaps. You may not need this API, as you also get the zap's state in the incoming request to your zapCode webhook.
 
-
-        The response will include all of the fields set so far by the zap's
-        workflow, as stored on the zap, the role holders, or the account
-        (including any secret account-scoped fields, e.g. API credentials that
-        the customer provided when installing your zap).
+        The response will include all of the fields set so far by the zap's        workflow, and will include any secret account-scoped field (e.g. API credentials that the customer provided when installing your zap).
       responses:
         '200':
           description: successful operation
@@ -74,12 +73,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Zap'
+    post:
+      tags:
+        - Regular APIs
+      summary: 'Update the state of a zap, as identified by id'
+      description: |
+        Use this API to update HR Zap's state for your zap as things progress at
+        your end.
 
-  /documentItem/byId/{id}:
+        For example if you are a reference checking system you might set the
+        status message to "3 of 4 referees complete". Once things have completed
+        at your end, pass apiComplete and your new field values, (e.g the report
+        document for your just completed reference check).
+      responses:
+        '200':
+          description: successful operation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZapAppStatus'
+        description: |
+          Your internal status for the zap.
+        required: true
+
+  /z/zaps/{id}/documentItems/{itemId}:
     parameters:
       - name: id
         in: path
-        description: id of an item within a document field
+        description: |
+          The id of a zap.
+        required: true
+        schema:
+          type: string
+      - name: itemId
+        in: path
+        description: |
+          The id of an item within a document field on the given zap.
         required: true
         schema:
           type: string
@@ -88,7 +118,7 @@ paths:
         - Regular APIs
       summary: Get a single item from within a document field
       description: |
-        Use this API to fetch the binary data for a single item within a document  field, e.g. an image of the front of a driver licence
+        Use this API to fetch the binary data for a single item within a document field, e.g. an image of the front of a driver licence.
       responses:
         200:
           description: successful operation
@@ -106,72 +136,134 @@ paths:
                 type: string
                 format: binary      
 
-  /zaps/byId/{id}/appStatus:
-    post:
+  /z/zaps/{id}/signatureItems/{itemId}:
+    parameters:
+      - name: id
+        in: path
+        description: |
+          The id of a zap.
+        required: true
+        schema:
+          type: string
+      - name: itemId
+        in: path
+        description: |
+          The id of a signature field that is interacted with by the zap.
+        required: true
+        schema:
+          type: string
+    get:
       tags:
         - Regular APIs
-      summary: 'Update the state of a zap, as identified by id'
-      description: >
-        Use this API to update HR Zap's state for your zap as things progress at
-        your end.
-
-
-        For example if you are a reference checking system you might set the
-        status message to "3 of 4 referees complete". Once things have completed
-        at your end, pass apiComplete and your new field values, (e.g the report
-        document for your just completed reference check).
-      parameters:
-        - name: id
-          in: path
-          description: zap id
-          required: true
-          schema:
-            type: string
+      summary: Get a signature item, i.e. raw binary data of the signature image
+      description: |
+        Use this API to fetch the binary data for the signature image.
       responses:
-        '200':
+        200:
           description: successful operation
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary      
+
+
+  /setup:
+    post:
+      tags:
+        - Webhooks
+      summary: Called when a user installs, uninstalls or checks on the health of your zap.
+      description: |
+        Your zap setup webhook is called when a user installs,
+        uninstalls or checks on the health of your zap.
+  
+        You might use this to do housekeeping in your own system. For example you could access your customer's API key from its account-scoped field, and then make a test API call.
+
+        When your setup webhook is called for an install, you can force the install to fail by passing back any http status other than 200 or 404.
+
+        You can pass back some markdown that HR Zap can display to the user installing your app, e.g. a welcome message or a "bad API key" message.
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormattedMessage'
+        400:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormattedMessage'
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ZapAppStatus'
-        description: |
-          Your internal status for the zap.
+              $ref: '#/components/schemas/SetupPackage'
         required: true
-        
-  /exampleValidateWebhook:
+
+  /fieldValuesRequest:
     post:
       tags:
         - Webhooks
-      summary: An example zap validate webhook endpoint.
-      description: >
-        This is an example of a **zap validate** webhook.
+      summary: Called when a user is on the order page for your zap
+      description: |
+        Your field values webhook is called by HR Zap at zap order time to ask you for all possible values for one of your fields.
+  
+        For example maybe your zap is a reference checking product, and each of your
+        customers has their own unique set of reference checks like this:
+  
+        - IT reference check
+  
+        - Senior mgmt ref check
+  
+        - Call centre ref check
+  
+        Your customer needs to be able to choose their desired reference check type in a dropdown when ordering yiour zap - to populate that dropdown, HR Zap calls your webhook.
 
-
+        **Troubleshooting** If your webhook is not being called, check that
+  
+        - the field is zap-scoped
+  
+        - it is marked as API-backed
+  
+        - it is a select list
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FieldValuesRequestPackage'
+        required: true
+        
+  /validate:
+    post:
+      tags:
+        - Webhooks
+      summary: Called when a workflow participant clicks Save on their workflow page.
+      description: |
         Your zap validate webhook is called when a user (or the individual)
         completes their step in the workflow by clicking "I agree".
 
-
-        Your webhook receives both the zap's current state and the user's
+        The request contains both the zap's current state and the user's
         desired state.
 
+        Your webhook can do any validation it likes on the desired state. For example you could check that the individual has provided at least
+        one form of photo id by lokking at the diffferent file upload fields they provided.
 
-        Your code can do any validation it likes on the desired state, and throw
-        things back to the user if need be. This is useful when you have more
-        complex rules than HR Zap supports with its in-built mandatory and
-        regexp validation.
-
-
-        For example you could check that the individual has provided at least
-        one form of photo id.
-
-
-        To indicate that validation has failed, pass back 400 and a message. HR
+        To fail validation, return 400 and a message in your response. HR
         Zap will display the message to the user and prevent them from
         proceeding.
 
-
-        If you have passed validation, i.e. there are no errors, return 200.
+        To pass validation, i.e. there are no errors, return 200.
       responses:
         '200':
           description: All good
@@ -190,27 +282,22 @@ paths:
           The role holder's data entry (what they want to set the zap's fields
           to)
         required: true
-        
-  /exampleZapCodeWebhook:
+      
+  /zapCode:
     post:
       tags:
         - Webhooks
-      summary: An example zap code webhook endpoint.
-      description: >
-        This is an example of a **zap code** webhook.
-
-
+      summary: Called when one of your zaps reaches an API step in the workflow.
+      description: |
         Your zap code webhook is called when one of your zaps reaches an API
         step in its workflow.
-
-
+  
         Your code should do your processing and then pass back some field values
         (e.g. if you are a reference checking product, pass back the report).
 
-
         If you can't complete your processing immediately (maybe it will take
         days), then respond with ZapAppStatus.apiComplete == false, and then
-        keep calling POST /zaps/byId/{}/appStatus each time you have an update
+        keep calling POST /z/zaps/{} each time you have an update
         for the zap, until finally you are apiComplete.
       responses:
         '200':
@@ -224,132 +311,15 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Zap'
-        description: >
+        description: |
           The API role holder has been reached, now it's time for the API to do
           its thing.
-
+  
           The request contains the zap's state, as set up by the previous role
           holders.
-
+  
           Your code should pass back the new state for the zap. You can only
           modify fields that were mapped to your zap in the zap config screen.
-        required: true
-        
-  /exampleFieldValuesWebhook:
-    post:
-      tags:
-        - Webhooks
-      summary: An example field values webhook endpoint.
-      description: >
-        This is an example of a **field values** webhook.
-
-
-        HR Zap calls this at zap order time to ask you for possible values for
-        one of your fields.
-
-
-        e.g. your zap is a reference checking product, and each of your
-        customers has their own unique set of reference checks like
-
-        - IT reference check
-
-        - Senior mgmt ref check
-
-        - Call centre ref check
-
-
-        At zap order time, the user needs to choose one, so HR Zap builds the
-        list by calling your webhook.
-
-
-        If you find the webhook is not being called for a field, check that
-
-        - the field is zap-scoped
-
-        - it's marked as API-backed
-
-        - it's a select list
-
-
-        In your response, pass back an array of all the possible field values.
-      responses:
-        '200':
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/StringField'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                webhookContext:
-                  $ref: '#/components/schemas/ZapWebhookContext'
-                fieldName:
-                  type: string
-                  description: >-
-                    the name of the field that HR Zap is requesting the possible
-                    values for
-                  example: ReferenceCheckType
-        required: true
-        
-  /exampleSetupWebhook:
-    post:
-      tags:
-        - Webhooks
-      summary: An example zap setup webhook endpoint.
-      description: >
-        This is an example of a **zap setup** webhook.
-
-
-        Your zap setup webhook is called when an account admin installs,
-        uninstalls or checks on the health of your zap.
-
-
-        You might use this to do housekeeping in your own system, verify API
-        keys, etc.
-
-
-        When installing, unless you respond with 200, the install will not
-        proceed.
-
-
-        In your response pass back some markdown that HR Zap can display to the
-        user.
-      responses:
-        '200':
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FormattedMessage'
-        '400':
-          description: error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FormattedMessage'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                webhookContext:
-                  $ref: '#/components/schemas/ZapWebhookContext'
-                operation:
-                  type: string
-                  description: |
-                    What the account is doing with your zap
-                  enum:
-                    - INSTALL
-                    - HEALTHCHECK
-                    - UNINSTALL
-                  default: INSTALL
         required: true
         
 components:
@@ -370,7 +340,7 @@ components:
 
     Zap:
       type: object
-      description: >
+      description: |
         The current state of a zap's fields, as held on the account, the zap or
         one of the role holders (a user or the the individual).
       properties:
@@ -382,41 +352,34 @@ components:
           example: 765ed33-2987-47c0-8787-13d5081
         currentWorkflowStep:
           $ref: '#/components/schemas/CurrentWorkflowStep'
-        roleHolders:
-          $ref: '#/components/schemas/ReadRolesFields'
-        accountFields:
-          $ref: '#/components/schemas/ReadFields'
-        zapFields:
-          $ref: '#/components/schemas/ReadFields'
-        reference:
-          type: string
-          description: 'A unique human-readable ID, useful for passing to external systems'
-          example: 1000324
+        zapData:
+          $ref: '#/components/schemas/ZapData'
+
           
-    ZapUpdate:
+    ZapData:
       type: object
-      description: >
-        The desired state for a workflow step - i.e. what the role holder has
-        entered into their mapped fields. roleHolders will have either 1 or 2 or
-        multiple roles in it, depending on what the current step in the workflow
-        is.
+      description: |
+        A set of field values for a zap.
+        
+        This could be for example the desired state for a workflow step - i.e. what the role holder has
+        entered into their mapped fields - as passed to the validate API.
+        
+        When the current step in the workflow is "Individual" there will be just one role holder in the roleHolders element. For example, an individual can't set the hiring manager's name.
 
-        - 1 when it's individual (e.g. the individual can't set hiring manager
-        name)
-
-        - 2 when it's any user role holder (e.g. a hiring manager CAN set the
-        individual's salary)
-
-        - multiple when it's an API call (since API code can set field values
-        for any role holder, not just the current one or the individual).
-        DISCUSS.
+        When the current step in the workflow is anyone else (like "Hiring manager") then there may be multiple role holders in the roleHolders element. For example, a hiring manager CAN set their own name and also the individual's salary)
       properties:
         rolesFields:
-          $ref: '#/components/schemas/WriteRolesFields'
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleFields'
         accountFields:
-          $ref: '#/components/schemas/WriteFields'
+          type: array
+          items:
+            $ref: '#/components/schemas/Field'
         zapFields:
-          $ref: '#/components/schemas/WriteFields'
+          type: array
+          items:
+            $ref: '#/components/schemas/Field'
           
     ZapValidatePackage:
       type: object
@@ -428,82 +391,84 @@ components:
         zap:
           $ref: '#/components/schemas/Zap'
         zapUpdate:
-          $ref: '#/components/schemas/ZapUpdate'
+          $ref: '#/components/schemas/ZapData'
+
+    SetupPackage:
+      type: object
+      properties:
+        webhookContext:
+          $ref: '#/components/schemas/ZapWebhookContext'
+        operation:
+          type: string
+          description: |
+            What the account is doing with your zap
+          enum:
+            - INSTALL
+            - HEALTHCHECK
+            - UNINSTALL
+          default: INSTALL
+
+    FieldValuesRequestPackage:
+      type: object
+      properties:
+        webhookContext:
+          $ref: '#/components/schemas/ZapWebhookContext'
+        fieldName:
+          type: string
+          description: |
+            the name of the field which HR Zap wants the possible values for
+          example: ReferenceCheckType
           
     ZapWebhookContext:
       type: object
       description: |
         Data needed for a zap endpoint to do its thing.
       properties:
-        account:
+        accountId:
           description: the account that is working with your zap
           type: string
           example: 5533dce69-639e-4864-bc01-fbf499c03442
         accountFields:
-          $ref: '#/components/schemas/ReadFields'
+          type: array
+          items:
+            $ref: '#/components/schemas/Field'
           
     ZapAppStatus:
       type: object
       required:
         - apiComplete
         - zapComplete
-        - flagged
         - statusString
-        - statusDiv
       properties:
         apiCompleteEta:
           type: string
           format: date
-          description: >
+          description: |
             If your API processing is not yet complete, then when you reckon it
-            will be (date format as per [RFC 3339, section
-            5.6](http://tools.ietf.org/html/rfc3339#section-5.6)).
+            will be (ISO 8601).
         apiComplete:
           type: boolean
           example: true
-          description: >
+          description: |
             True to signal that your API processing is complete. HR Zap will
             start the next step in the workflow (if any), unless you also passed
             zapComplete.
 
-            When you pass apiComplete == true (but only then), include your
-            zapUpdate (to update fields, e.g. the report document).
+            You can update any of the role's mapped fields (e.g. the report documen) by attaching a zapUpdate.
         zapComplete:
           type: boolean
           example: true
-          description: >-
+          description: |
             true to signal that the whole zap is now complete. No more workflow
-            stages will be invoked. Could well be flagged as well.
+            stages will be invoked.
         zapUpdate:
-          $ref: '#/components/schemas/ZapUpdate'
-        flagged:
-          type: boolean
-          example: true
-          description: >-
-            true when passing zapComplete and we want to signal that this zap is
-            bad, and should appear red
+          $ref: '#/components/schemas/ZapData'
         statusString:
           type: string
           description: >
             A string containing the zap's status in your system, which HR Zap
             will present to the user in text, table cells, etc.
           example: Sent to the Ministry of Justice
-        statusDiv:
-          type: string
-          description: >
-            html for a div showing the zap's status in your system, which HR Zap
-            will present to the user inside a container 3-4 words wide that
-            expands downwards.
-          example: >-
-            <div style=blah><img href=blah />Sent to the Ministry of
-            Justice</div>
-        appScratchPad:
-          type: string
-          description: >
-            A storage area for any data the zap code wants to hold against the
-            zap, e.g. for building database-less integrations. This is ignored
-            by HR Zap, other than making it available to your zap code.
-            
 
     FormattedMessage:
       type: object
@@ -515,17 +480,7 @@ components:
             A markdown message, with newlines as \n.
           example: The message goes here
 
-    ReadRolesFields:
-      type: array
-      items:
-        $ref: '#/components/schemas/ReadRoleFields'
-        
-    WriteRolesFields:
-      type: array
-      items:
-        $ref: '#/components/schemas/WriteRoleFields'
-        
-    ReadRoleFields:
+    RoleFields:
       type: object
       properties:
         role:
@@ -533,29 +488,11 @@ components:
           example: Individual
           type: string
         fields:
-          $ref: '#/components/schemas/ReadFields'
+          type: array
+          items:
+            $ref: '#/components/schemas/Field'
           
-    WriteRoleFields:
-      type: object
-      properties:
-        role:
-          description: the name of a role within the zap workflow
-          example: Individual
-          type: string
-        fields:
-          $ref: '#/components/schemas/WriteFields'
-          
-    ReadFields:
-      type: array
-      items:
-        $ref: '#/components/schemas/ReadField'
-        
-    WriteFields:
-      type: array
-      items:
-        $ref: '#/components/schemas/WriteField'
-        
-    ReadField:    
+    Field:    
       description: |
         Fields have a scope.
         
@@ -577,48 +514,598 @@ components:
       
       oneOf:     # each field may be a different type
         - $ref: '#/components/schemas/StringField'
-        - $ref: '#/components/schemas/NumberField'
+        - $ref: '#/components/schemas/IntegerField'
+        - $ref: '#/components/schemas/FloatField'
+        - $ref: '#/components/schemas/MoneyField'
+        - $ref: '#/components/schemas/DateField'
+        - $ref: '#/components/schemas/BooleanField'
+        - $ref: '#/components/schemas/EmailField'
+        - $ref: '#/components/schemas/PhoneField'
+        - $ref: '#/components/schemas/IRDField'
+        - $ref: '#/components/schemas/NameField'
+        - $ref: '#/components/schemas/ReadSignatureField'
+        - $ref: '#/components/schemas/WriteSignatureField'
+        - $ref: '#/components/schemas/AddressField'
         - $ref: '#/components/schemas/ReadDocumentField'
-      discriminator:
-        propertyName: fieldType
-        
-    WriteField:    
-      description: |
-        Like ReadField, but used to update fields - e.g. document (binary) fields have their data inline instead of via url.
-      oneOf:
-        - $ref: '#/components/schemas/StringField'
-        - $ref: '#/components/schemas/NumberField'
         - $ref: '#/components/schemas/WriteDocumentField'
       discriminator:
         propertyName: fieldType
-        
+
+    FieldType:
+      type: string
+      description: |
+        What type of field this is
+      enum:
+        - STRING
+        - INTEGER
+        - FLOAT
+        - MONEY
+        - DATE
+        - BOOLEAN
+        - EMAIL
+        - PHONE
+        - NAME
+        - READ_SIGNATURE
+        - WRITE_SIGNATURE
+        - ADDRESS
+        - READ_DOCUMENT
+        - WRITE_DOCUMENT
+
     StringField:
       type: object
       required:
         - fieldType
+        - fieldName
         - value
       properties:
         fieldType:
+          $ref: '#/components/schemas/FieldType'
+        fieldName:
           type: string
-          example: StringField
+          example: referenceType
         value:
           type: string
           description: Value for a string field or select list field
           example: General reference check
-          
-    NumberField:
+
+    DateField:
       type: object
       required:
         - fieldType
+        - fieldName
+        - value
+      properties:
+        fieldType:
+          $ref: '#/components/schemas/FieldType'
+        fieldName:
+          type: string
+          example: dateOfBirth
+        value:
+          type: string
+          description: Value for a date field in ISO 8601 format
+          example: 2021-02-08T21:10:25+0000
+          
+    IntegerField:
+      type: object
+      required:
+        - fieldType
+        - fieldName
+        - value
+      properties:
+        fieldType:
+          $ref: '#/components/schemas/FieldType'
+        fieldName:
+          type: string
+          example: hoursPerMonth
+        value:
+          type: number
+          description: Value for an integer field (no decimal places)
+          example: 82
+
+    FloatField:
+      type: object
+      required:
+        - fieldType
+        - fieldName
+        - value
+      properties:
+        fieldType:
+          $ref: '#/components/schemas/FieldType'
+        fieldName:
+          type: string
+          example: averageTemperature
+        value:
+          type: number
+          description: Value for a floating point number field
+          example: 82.453444
+
+    MoneyField:
+      type: object
+      required:
+        - fieldType
+        - fieldName
+        - value
+      properties:
+        fieldType:
+          $ref: '#/components/schemas/FieldType'
+        fieldName:
+          type: string
+          example: requiredAnnualSalary
+        value:
+          type: object
+          description: Value for a money field (holding amount + currency)
+          properties:
+            amount:
+              type: number
+              format: float
+            currency:
+              type: string
+              description: A valid 3 character currency code as per ISO 4217
+              enum:
+                - AFN
+                - EUR
+                - ALL
+                - DZD
+                - USD
+                - EUR
+                - AOA
+                - XCD
+                - ARS
+                - AMD
+                - AWG
+                - AUD
+                - EUR
+                - AZN
+                - BSD
+                - BHD
+                - BDT
+                - BBD
+                - BYN
+                - EUR
+                - BZD
+                - XOF
+                - BMD
+                - INR
+                - BTN
+                - BOB
+                - BOV
+                - USD
+                - BAM
+                - BWP
+                - NOK
+                - BRL
+                - USD
+                - BND
+                - BGN
+                - XOF
+                - BIF
+                - CVE
+                - KHR
+                - XAF
+                - CAD
+                - KYD
+                - XAF
+                - XAF
+                - CLP
+                - CLF
+                - CNY
+                - AUD
+                - AUD
+                - COP
+                - COU
+                - KMF
+                - CDF
+                - XAF
+                - NZD
+                - CRC
+                - XOF
+                - HRK
+                - CUP
+                - CUC
+                - ANG
+                - EUR
+                - CZK
+                - DKK
+                - DJF
+                - XCD
+                - DOP
+                - USD
+                - EGP
+                - SVC
+                - USD
+                - XAF
+                - ERN
+                - EUR
+                - SZL
+                - ETB
+                - EUR
+                - FKP
+                - DKK
+                - FJD
+                - EUR
+                - EUR
+                - EUR
+                - XPF
+                - EUR
+                - XAF
+                - GMD
+                - GEL
+                - EUR
+                - GHS
+                - GIP
+                - EUR
+                - DKK
+                - XCD
+                - EUR
+                - USD
+                - GTQ
+                - GBP
+                - GNF
+                - XOF
+                - GYD
+                - HTG
+                - USD
+                - AUD
+                - EUR
+                - HNL
+                - HKD
+                - HUF
+                - ISK
+                - INR
+                - IDR
+                - XDR
+                - IRR
+                - IQD
+                - EUR
+                - GBP
+                - ILS
+                - EUR
+                - JMD
+                - JPY
+                - GBP
+                - JOD
+                - KZT
+                - KES
+                - AUD
+                - KPW
+                - KRW
+                - KWD
+                - KGS
+                - LAK
+                - EUR
+                - LBP
+                - LSL
+                - ZAR
+                - LRD
+                - LYD
+                - CHF
+                - EUR
+                - EUR
+                - MOP
+                - MKD
+                - MGA
+                - MWK
+                - MYR
+                - MVR
+                - XOF
+                - EUR
+                - USD
+                - EUR
+                - MRU
+                - MUR
+                - EUR
+                - XUA
+                - MXN
+                - MXV
+                - USD
+                - MDL
+                - EUR
+                - MNT
+                - EUR
+                - XCD
+                - MAD
+                - MZN
+                - MMK
+                - NAD
+                - ZAR
+                - AUD
+                - NPR
+                - EUR
+                - XPF
+                - NZD
+                - NIO
+                - XOF
+                - NGN
+                - NZD
+                - AUD
+                - USD
+                - NOK
+                - OMR
+                - PKR
+                - USD
+                - PAB
+                - USD
+                - PGK
+                - PYG
+                - PEN
+                - PHP
+                - NZD
+                - PLN
+                - EUR
+                - USD
+                - QAR
+                - EUR
+                - RON
+                - RUB
+                - RWF
+                - EUR
+                - SHP
+                - XCD
+                - XCD
+                - EUR
+                - EUR
+                - XCD
+                - WST
+                - EUR
+                - STN
+                - SAR
+                - XOF
+                - RSD
+                - SCR
+                - SLL
+                - SGD
+                - ANG
+                - XSU
+                - EUR
+                - EUR
+                - SBD
+                - SOS
+                - ZAR
+                - SSP
+                - EUR
+                - LKR
+                - SDG
+                - SRD
+                - NOK
+                - SEK
+                - CHF
+                - CHE
+                - CHW
+                - SYP
+                - TWD
+                - TJS
+                - TZS
+                - THB
+                - USD
+                - XOF
+                - NZD
+                - TOP
+                - TTD
+                - TND
+                - TRY
+                - TMT
+                - USD
+                - AUD
+                - UGX
+                - UAH
+                - AED
+                - GBP
+                - USD
+                - USD
+                - USN
+                - UYU
+                - UYI
+                - UYW
+                - UZS
+                - VUV
+                - VES
+                - VND
+                - USD
+                - USD
+                - XPF
+                - MAD
+                - YER
+                - ZMW
+                - ZWL
+                - XBA
+                - XBB
+                - XBC
+                - XBD
+                - XTS
+                - XXX
+                - XAU
+                - XPD
+                - XPT
+                - XAG
+
+    BooleanField:
+      type: object
+      required:
+        - fieldType
+        - fieldName
+        - value
+      properties:
+        fieldType:
+          $ref: '#/components/schemas/FieldType'
+        fieldName:
+          type: string
+          example: overtimeExempt
+        value:
+          type: boolean
+          description: Value for a boolean field
+          example: true
+
+    EmailField:
+      type: object
+      required:
+        - fieldType
+        - fieldName
+        - value
+      properties:
+        fieldType:
+          $ref: '#/components/schemas/FieldType'
+        fieldName:
+          type: string
+          example: email
+        value:
+          type: string
+          description: an email address
+          example: fred@bloggs.com
+
+    IRDField:
+      type: object
+      required:
+        - fieldType
+        - fieldName
         - value
       properties:
         fieldType:
           type: string
-          example: NumberField
+          example: IRDField
+        fieldName:
+          type: string
+          example: irdnumber
         value:
-          type: number
-          description: Value for a number field
-          example: 64.22
+          type: string
+          description: Value for an NZ IRD field
+          example: 12344370
+
+    PhoneField:
+      type: object
+      required:
+        - fieldType
+        - fieldName
+        - value
+      properties:
+        fieldType:
+          type: string
+          example: PhoneField
+        fieldName:
+          type: string
+          example: homePhoneNumber
+        value:
+          type: string
+          description: Value for a phone number field, as stored in E.164 format
+          example: +442071838750  
+
+    NameField:
+      type: object
+      description: |
+        A NameField stores a persons name, broken into its individual components.
+      required:
+        - fieldType
+        - fieldName
+        - value
+      properties:
+        fieldType:
+          $ref: '#/components/schemas/FieldType'
+        fieldName:
+          type: string
+          example: name
+        value:
+          type: object
+          properties:
+            firstName:
+              type: string
+              example: Fred
+            middleNames:
+              type: string
+              example: Vader
+            lastName:
+              type: string
+              example: Bloggs
+
+    ReadSignatureField:
+      type: object
+      required:
+        - fieldType
+        - fieldName
+        - value
+      properties:
+        fieldType:
+          $ref: '#/components/schemas/FieldType'
+        fieldName:
+          type: string
+          example: signature
+        value:
+          $ref: '#/components/schemas/ReadSignatureItem'
+
+    ReadSignatureItem:
+      type: object
+      description: |
+        Data about a signature, all but the data itself
+      required:
+        - id
+        - fileSize
+      properties:
+        id:
+          type: string
+          example: 4ef96c2c-55bb-4809-8336-59daad4f0974
+          description: | 
+            An unguessable key used to stream the binary data for the signature via GET /z/zaps/{}/signatureItems/{}
+        fileSize:
+          $ref: '#/components/schemas/FileSize'
+
+    WriteSignatureField:
+      type: object
+      required:
+        - fieldType
+        - fieldName
+        - value
+      properties:
+        fieldType:
+          $ref: '#/components/schemas/FieldType'
+        fieldName:
+          type: string
+          example: signature
+        value:
+          $ref: '#/components/schemas/WriteSignatureItem'
+
+    WriteSignatureItem:
+      type: object
+      description: |
+        Data for a signature
+      required:
+        - value
+      properties:
+        value:
+          type: string
+          format: base64
+          example: blahy4645y95jrfjfjr49904jrf04jk
+          description: | 
+            The binary data for the image in png format
+
+    AddressField:
+      type: object
+      description: |
+        An AddressField stores an address in the same format as returned by Google's geocoding responses (https://developers.google.com/maps/documentation/geocoding/overview#GeocodingResponses). The values field is an array containing the same content that would be found in the address_components element of the Google response (see example at https://developers.google.com/places/web-service/details#PlaceDetailsResponses)
+      required:
+        - fieldType
+        - fieldName
+        - value
+      properties:
+        fieldType:
+          $ref: '#/components/schemas/FieldType'
+        fieldName:
+          type: string
+          example: homeAddress
+        value:
+          type: array
+          items:
+            type: object
+            properties:
+              long_name:
+                type: string
+                example: Santa Clara County
+              short_name:
+                type: string
+                example: Santa Clara County
+              types:
+                type: array
+                description: |
+                  See https://developers.google.com/places/web-service/supported_types#table2 for the source list
+                items:
+                  enum: [administrative_area_level_1,administrative_area_level_2,administrative_area_level_3,administrative_area_level_4,administrative_area_level_5,archipelago,colloquial_area,continent,country,establishment,finance,floor,food,general_contractor,geocode,health,intersection,landmark,locality,natural_feature,neighborhood,place_of_worship,plus_code,point_of_interest,political,post_box,postal_code,postal_code_prefix,postal_code_suffix,postal_town,premise,room,route,street_address,street_number,sublocality,sublocality_level_1,sublocality_level_2,sublocality_level_3,sublocality_level_4,sublocality_level_5,subpremise,town_square]
 
     ReadDocumentField:
       type: object
@@ -626,9 +1113,10 @@ components:
         - fieldType
       properties:
         fieldType:
+          $ref: '#/components/schemas/FieldType'
+        fieldName:
           type: string
-          example: ReadDocumentField
-        values:
+        value:
           type: array
           items:
             $ref: '#/components/schemas/ReadDocumentItem'
@@ -640,9 +1128,10 @@ components:
         - items
       properties:
         fieldType:
+          $ref: '#/components/schemas/FieldType'
+        fieldName:
           type: string
-          example: WriteDocumentField
-        items:
+        value:
           type: array
           items:
             $ref: '#/components/schemas/WriteDocumentItem'
@@ -659,29 +1148,44 @@ components:
           type: string
           example: 4ef96c2c-55bb-4809-8336-59daad4f0974
           description: | 
-            An unguessable key used to stream the binary data for the document via GET /documentItems/byId/{}
-        mimeType: 
-          type: string
-          example: application/pdf
-          description: | 
-            The mimeType for the document - one of image/jpeg, image/png or application/pdf
+            An unguessable key used to stream the binary data for the document via GET /z/zaps/{}/documentItems/{}
+        mimeType:
+          $ref: '#/components/schemas/MimeType'
+        fileName:
+          $ref: '#/components/schemas/FileName'
+        fileSize:
+          $ref: '#/components/schemas/FileSize'
+
 
     WriteDocumentItem:
       type: object
       description: |
         A single item within a document field - e.g. an image of the front of the individual's driver licence.
       required:
-        - itemValue
+        - value
         - mimeType
       properties:
-        itemValue:
+        value:
           type: string
           format: base64
           example: RGlkIHlvdSBtZWFuOiBiYXNlNjQgZW5jb2RlCgoKQmFzZTY0IEVuY29kZS..
           description: | 
             Base64-encoded binary data for the document.
-        mimeType: 
-          type: string
-          example: application/pdf
-          description: | 
-            The mimeType for the document - one of image/jpeg, image/png or application/pdf
+        mimeType:
+          $ref: '#/components/schemas/MimeType'
+        fileName:
+          $ref: '#/components/schemas/FileName'
+
+    MimeType:
+      description: The mimeType for the document
+      enum: [ application/pdf, image/png, image/jpeg ]
+
+    FileName:
+      type: string
+      description: the document's file name (name only, excluding the path)
+      example: nursing-certificate-Bela-Lugosi.pdf
+    
+    FileSize:
+      type: integer
+      description: the document's file size in bytes
+      example: 23887
