@@ -13,7 +13,7 @@ The following endpoints are available:
 | Your web hook | Be alerted when a check is updated. You pass your web hook's url in when you create a check. |
 | GET&nbsp;/mojChecks/byClientKey/{clientKey}/request | Fetch the request pdf for a check (sent to MoJ). | 
 | GET&nbsp;/mojChecks/byClientkey/{clientKey}/result | Fetch the result pdf for a check (received from MoJ). |
-| PATCH&nbsp;/mojChecks/byExternalRef/{externalRef} | Modify a check's priority. |
+| PATCH&nbsp;/mojChecks/byExternalRef/{externalRef} | Modify a check's priority. **Deprecated:** all checks are now effectively gold|
 | GET&nbsp;/account | Fetch your account details. |
 | GET&nbsp;/mojChecks/metaData | Fetch metadata about the statuses that a check can be in. |
  
@@ -31,9 +31,9 @@ For API calls that CheckPlease makes in to you (i.e. web hook calls), CheckPleas
    
 Ordering a check
 ====
-Use the **POST /mojChecks** API to order a check.
+Use the **POST /mojChecks** API to order a check. Always pass GOLD as the priority.
 
-For example, to order a check on Fred Flintstone with 3 day turnaround (from the command line, using curl):
+For example, to order a check on Fred Flintstone (from the command line, using curl):
 
 ````
 curl -X POST https://api.checkplease.co.nz/api/mojChecks \
@@ -99,7 +99,7 @@ CheckPlease may return one of the following http statuses:
 
 Polling vs web hooks
 -------
-If possible, you should try and avoid calling this API repeatedly to see if your check has changed (i.e. polling). Instead, pass a web hook in when you create the check. Then your integration will be notified in real time as soon as your check changes.
+Note: Please avoid calling this API repeatedly to see if your check has changed (i.e. avoid polling). Instead, pass a web hook in when you create the check. Then your integration will be notified in real time as soon as your check changes.
 
 Using a web hook instead of polling is:
 - more real-time: your code will be instantly alerted when your checks change their state, and your integration will be always up to date
@@ -114,8 +114,8 @@ Fields in the check object
 | individualLastName | client | Y ||
 | individualEmail | client | Y ||
 | individualMiddleNames | client | N | When there are multiple middle names then comma separate them. |
-| priority | client | N | The possible values for priority are: <ul><li>GOLD (3 working days turnaround)<li>SILVER (10 working days turnaround)<li>BRONZE (15 working days turnaround)</ul> If you don't provide a value for priority, then the check will be created using your CheckPlease account's default priority. |
-| externalRef | client | N | The optional externalRef  field can be used to store your own reference (up to 512 characters) on the check. This is useful if you intend to update the check's priority after it has been created. |
+| priority | client | N | The possible values for priority are: <ul><li>GOLD (3 working days turnaround)</ul> If you don't provide a value for priority, then the check will be created using your CheckPlease account's default priority. |
+| externalRef | client | N | The optional externalRef  field can be used to store your own reference (up to 512 characters) on the check. |
 | webHook | client | N | The optional webHook field can be used to store a url (up to 1024 characters) to your own web hook endpoint. This is useful if you want to be updated as the check progresses. |
 | status | server | Y | The status field indicates the stage the check is currently at. The possible statuses are shown at the end of this document. |
 | lastStatusChange | server | Y | The date (as defined by [RFC 3339, section 5.6.](http://tools.ietf.org/html/rfc3339#section-5.6)) that the check entered its current status. |
@@ -125,7 +125,7 @@ Fields in the check object
 | mojReference | server | N | The reference code allocated by MoJ once the request has been submitted to them - until then the field is null. |
 | requestComplete | server | Y | true once the request pdf (i.e. the document that CheckPlease sends to MoJ) has been built. This happens towards the end of the process, after the individual has uploaded their data and their ID has been verified.<br /><br />When true, you can fetch the request pdf with GET /mojChecks/requests/{clientKey}/request. | 
 | hasCriminalRecord | server | N | Present and non-null at the end of the process, once CheckPlease has received the result pdf back from the MoJ for the individual. True means that the individual has a criminal record, false means they don't.<br /><br />When the field is present and non-null, you can fetch the pdf result document itself (containing specific details of the individual's convictions, or lack of) with GET /mojChecks/requests/{clientKey}/result. |
-| canChangePriority | server | Y | true if the check's priority can be changed with the PATCH /mojChecks/byExternalRef/{ref} API. A check's priority can not be changed once payment is complete or the request has been submitted to MoJ. |    
+| canChangePriority | server | Y | **Deprecated:** true if the check's priority can be changed with the PATCH /mojChecks/byExternalRef/{ref} API. A check's priority can not be changed once payment is complete or the request has been submitted to MoJ. |    
 | clientKey | server | Y | Automatically generated by CheckPlease and can be used to fetch the result and request pdfs. |
 | verifierKey | server | Y | Automatically generated by CheckPlease and can be used to perform verification (Checks on Member plan only) |
 | plan | server | Y | The plan field indicates the check's plan. Copied from the account's plan when the check is created, and never subsequently updated. The possible values are:<ul><li>BUSINESS (CheckPlease handles verification, payment in advance with credit card)<li>CREDIT (CheckPlease handles verification, monthly invoicing)<li>MEMBER (MoJ CCH online member, account owner handles verification, monthly invoicing)</ul> |
@@ -158,7 +158,7 @@ Use the check's **hasCriminalRecord** (null or not null) field to learn whether 
 
 Using web hooks to track changes to your checks
 ====
-When you create a check with a web hook specified, whenever the check's status is modified, CheckPlease will POST to your web hook endpoint, passing the updated check object in the request body.
+When you create a check with a web hook specified, whenever the check's status is modified, CheckPlease will POST to your web hook endpoint, passing the updated check object.
 
 This lets your server stay updated as the check progresses through each stage, eventually leading up to a result. For example, your server might change its own progress indicator on each incoming web hook call, to keep your end user informed.
 
@@ -171,6 +171,8 @@ The web hook is not called for the very first transition (i.e. when a check is c
 
 Patching a check
 ============
+**Note:** Only GOLD checks are now supported (3 day turnaround), so there is no longer any point in changing the check's priority.
+
 Use the **PATCH /mojChecks/byExternalRef/{externalRef}** API to modify a check.
 
 You can only modify the check as following:
@@ -178,7 +180,7 @@ You can only modify the check as following:
 - cancel the check
 
 You can only modify the check:
-- before payment (unless your check was created while your account is on a CREDIT or MEMBER plan)
+- before payment (unless your check was created while your account is on a CREDIT or MEMBER plan); AND
 - before submission to the MoJ (all checks)
 
 You can use the **canChangePriority** field on the check to test whether priority can be modified or the check can be cancelled.
@@ -240,7 +242,7 @@ The response contains your account details.
   "accountOwnerFirstName": "Stephanie",
   "accountOwnerLastName": "Higgins",
   "accountOwnerEmail": "stephanie.higgins@bigstore.com",
-  "defaultPriority": "BRONZE",
+  "defaultPriority": "GOLD",
   "demo": true,
   "plan": "BUSINESS"
 }
